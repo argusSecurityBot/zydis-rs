@@ -14,12 +14,26 @@ impl ZyanString {
     /// Create a new `ZyanString`, using the given `buffer` for storage.
     #[inline]
     pub fn new(buffer: &mut [u8]) -> Result<Self> {
-        Self::new_ptr(buffer.as_mut_ptr(), buffer.len())
+        // SAFETY: pointer and capacity are derived from a single live slice, so
+        // the buffer is valid for `capacity` bytes and outlives this call's use.
+        unsafe { Self::new_ptr(buffer.as_mut_ptr(), buffer.len()) }
     }
 
     /// Create a new `ZyanString` from a given buffer and a capacity.
+    ///
+    /// # Safety
+    ///
+    /// The C side (`ZyanStringInitCustomBuffer`) writes a NUL byte through
+    /// `buffer` immediately and later append operations trust `capacity` as the
+    /// buffer's extent without ever checking it against the real allocation. The
+    /// caller must guarantee that `buffer` is non-null, points to a single
+    /// allocation of at least `capacity` bytes, is valid for reads and writes
+    /// for that extent, and stays valid for as long as the returned
+    /// `ZyanString` is used. Passing a pointer that is dangling, unmapped, or
+    /// shorter than `capacity` is undefined behaviour. Prefer [`new`](Self::new),
+    /// which derives both arguments from one slice and is sound by construction.
     #[inline]
-    pub fn new_ptr(buffer: *mut u8, capacity: usize) -> Result<Self> {
+    pub unsafe fn new_ptr(buffer: *mut u8, capacity: usize) -> Result<Self> {
         unsafe {
             let mut string = MaybeUninit::uninit();
             ZyanStringInitCustomBuffer(string.as_mut_ptr(), buffer as *mut c_char, capacity)

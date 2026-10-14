@@ -142,8 +142,19 @@ impl FormatterBuffer {
     }
 
     /// Restores a previously saved buffer-state.
+    ///
+    /// # Safety
+    ///
+    /// `state` is an opaque token that the C side (`ZydisFormatterBufferRestore`)
+    /// trusts without validation: depending on the buffer mode it is used
+    /// directly as a length or as the backing data pointer, and the buffer is
+    /// rewound and written through accordingly. The caller must guarantee that
+    /// `state` was produced by [`remember`](Self::remember) on *this same*
+    /// buffer, with no intervening operation that invalidates it. Restoring a
+    /// token taken from a different buffer (for example, a buffer from an
+    /// earlier format call) is undefined behaviour and can write out of bounds.
     #[inline]
-    pub fn restore(&mut self, state: FormatterBufferState) -> Result<()> {
+    pub unsafe fn restore(&mut self, state: FormatterBufferState) -> Result<()> {
         unsafe { ZydisFormatterBufferRestore(self, state).into() }
     }
 }
